@@ -442,5 +442,98 @@ class FKTest(unittest.TestCase):
         self.assertTrue(True, matrix_equal(correct_thetamat, thetamat))
         self.assertTrue(True, matrix_equal(correct_dthetamat, dthetamat))
 
+    def test_cubic_time_scaling(self):
+        Tf = 2
+        t = 0.6
+        self.assertEqual(True, array_equal(np.array([0.216]), np.array([util.CubicTimeScaling(Tf, t)])))
+
+    def test_joint_trajectory(self):
+        thetastart = np.array([1, 0, 0, 1, 1, 0.2, 0, 1])
+        thetaend = np.array([1.2, 0.5, 0.6, 1.1, 2, 2, 0.9, 1])
+        Tf = 4
+        N = 6
+        method = 3
+
+        trajectory = util.JointTrajectory(thetastart, thetaend, Tf, N, method)
+        correct_trajectory = \
+            np.array([[     1,     0,      0,      1,     1,    0.2,      0, 1],
+                      [1.0208, 0.052, 0.0624, 1.0104, 1.104, 0.3872, 0.0936, 1],
+                      [1.0704, 0.176, 0.2112, 1.0352, 1.352, 0.8336, 0.3168, 1],
+                      [1.1296, 0.324, 0.3888, 1.0648, 1.648, 1.3664, 0.5832, 1],
+                      [1.1792, 0.448, 0.5376, 1.0896, 1.896, 1.8128, 0.8064, 1],
+                      [   1.2,   0.5,    0.6,    1.1,     2,      2,    0.9, 1]])
+
+        self.assertEqual(True, matrix_equal(correct_trajectory, trajectory))
+
+    def test_screw_trajectory(self):
+        Xstart = np.array([[1, 0, 0, 1],
+                           [0, 1, 0, 0],
+                           [0, 0, 1, 1],
+                           [0, 0, 0, 1]])
+        Xend = np.array([[0, 0, 1, 0.1],
+                         [1, 0, 0, 0],
+                         [0, 1, 0, 4.1],
+                         [0, 0, 0, 1]])
+        Tf = 5
+        N = 4
+        method = 3
+        correct_output = \
+            [np.array([[1, 0, 0, 1],
+                       [0, 1, 0, 0],
+                       [0, 0, 1, 1],
+                       [0, 0, 0, 1]]),
+             np.array([[0.904, -0.25, 0.346, 0.441],
+                       [0.346, 0.904, -0.25, 0.529],
+                       [-0.25, 0.346, 0.904, 1.601],
+                       [0, 0, 0, 1]]),
+             np.array([[0.346, -0.25, 0.904, -0.117],
+                       [0.904, 0.346, -0.25, 0.473],
+                       [-0.25, 0.904, 0.346, 3.274],
+                       [0, 0, 0, 1]]),
+             np.array([[0, 0, 1, 0.1],
+                       [1, 0, 0, 0],
+                       [0, 1, 0, 4.1],
+                       [0, 0, 0, 1]])]
+        output = util.ScrewTrajectory(Xstart, Xend, Tf, N, method)
+
+        for idx, correct in enumerate(correct_output):
+            self.assertEqual(True, matrix_equal(correct, output[idx]))
+
+    def test_cartesian_trajectory(self):
+        Xstart = np.array([[1, 0, 0, 1],
+                           [0, 1, 0, 0],
+                           [0, 0, 1, 1],
+                           [0, 0, 0, 1]])
+        Xend = np.array([[0, 0, 1, 0.1],
+                         [1, 0, 0, 0],
+                         [0, 1, 0, 4.1],
+                         [0, 0, 0, 1]])
+        Tf = 5
+        N = 4
+        method = 5
+        correct_output = \
+        [np.array([[1, 0, 0, 1],
+                   [0, 1, 0, 0],
+                   [0, 0, 1, 1],
+                   [0, 0, 0, 1]]),
+         np.array([[ 0.937, -0.214,  0.277, 0.811],
+                   [ 0.277,  0.937, -0.214,     0],
+                   [-0.214,  0.277,  0.937, 1.651],
+                   [     0,      0,      0,     1]]),
+         np.array([[ 0.277, -0.214,  0.937, 0.289],
+                   [ 0.937,  0.277, -0.214,     0],
+                   [-0.214,  0.937,  0.277, 3.449],
+                   [     0,      0,      0,     1]]),
+         np.array([[0, 0, 1, 0.1],
+                   [1, 0, 0,   0],
+                   [0, 1, 0, 4.1],
+                   [0, 0, 0,   1]])]
+
+        output = util.CartesianTrajectory(Xstart, Xend, Tf, N, method)
+
+        for idx, correct in enumerate(correct_output):
+            self.assertEqual(True, matrix_equal(correct, output[idx]))
+        
+
 if __name__ == '__main__':
     unittest.main()

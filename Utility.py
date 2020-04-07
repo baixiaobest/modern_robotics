@@ -366,3 +366,130 @@ def ForwardDynamicsTrajectory(thetalist, dthetalist, taumat, g, Ftipmat, Mlist, 
     return thetamat, dthetamat
 
 
+"""Computes s(t) for a cubic time scaling
+
+    :param Tf: Total time of the motion in seconds from rest to rest
+    :param t: The current time t satisfying 0 < t < Tf
+    :return: The path parameter s(t) corresponding to a third-order
+             polynomial motion that begins and ends at zero velocity
+"""
+def CubicTimeScaling(Tf, t):
+    a2 = 3 / (Tf ** 2)
+    a3 = -2 / (Tf ** 3)
+    return a2 * t ** 2 + a3 * t ** 3
+
+"""Computes s(t) for a quintic time scaling
+    :param Tf: Total time of the motion in seconds from rest to rest
+    :param t: The current time t satisfying 0 < t < Tf
+    :return: The path parameter s(t) corresponding to a fifth-order
+             polynomial motion that begins and ends at zero velocity and zero
+             acceleration
+"""
+def QuinticTimeScaling(Tf, t):
+    return 10 * (1.0 * t / Tf) ** 3 - 15 * (1.0 * t / Tf) ** 4 \
+           + 6 * (1.0 * t / Tf) ** 5
+
+
+"""Computes a straight-line trajectory in joint space
+
+    :param thetastart: The initial joint variables
+    :param thetaend: The final joint variables
+    :param Tf: Total time of the motion in seconds from rest to rest
+    :param N: The number of points N > 1 (Start and stop) in the discrete
+              representation of the trajectory
+    :param method: The time-scaling method, where 3 indicates cubic (third-
+                   order polynomial) time scaling and 5 indicates quintic
+                   (fifth-order polynomial) time scaling
+    :return: A trajectory as an N x n matrix, where each row is an n-vector
+             of joint variables at an instant in time. The first row is
+             thetastart and the Nth row is thetaend . The elapsed time
+             between each row is Tf / (N - 1)
+"""
+def JointTrajectory(thetastart, thetaend, Tf, N, method=3):
+    dt = Tf / (N - 1.0)
+    trajectory = np.zeros((N, len(thetastart)))
+    for i in range(N):
+        t = i * dt
+        s = 0
+        if method == 3:
+            s = CubicTimeScaling(Tf, t)
+        elif method == 5:
+            s = QuinticTimeScaling(Tf, t)
+        trajectory[i] = (1 - s) * thetastart + s * thetaend
+
+    return trajectory
+
+
+"""Computes a trajectory as a list of N SE(3) matrices corresponding to
+      the screw motion about a space screw axis
+
+    :param Xstart: The initial end-effector configuration
+    :param Xend: The final end-effector configuration
+    :param Tf: Total time of the motion in seconds from rest to rest
+    :param N: The number of points N > 1 (Start and stop) in the discrete
+              representation of the trajectory
+    :param method: The time-scaling method, where 3 indicates cubic (third-
+                   order polynomial) time scaling and 5 indicates quintic
+                   (fifth-order polynomial) time scaling
+    :return: The discretized trajectory as a list of N matrices in SE(3)
+             separated in time by Tf/(N-1). The first in the list is Xstart
+             and the Nth is Xend
+"""
+def ScrewTrajectory(Xstart, Xend, Tf, N, method=3):
+    dt = Tf / (N - 1.0)
+    trajectory = []
+    Xstart_end = mr.TransInv(Xstart) @ Xend
+    for i in range(N):
+        t = i * dt
+        s = 0
+        if method == 3:
+            s = CubicTimeScaling(Tf, t)
+        elif method == 5:
+            s = QuinticTimeScaling(Tf, t)
+        trajectory.append(Xstart @ mr.MatrixExp6(mr.MatrixLog6(Xstart_end) * s))
+    return trajectory
+
+
+"""Computes a trajectory as a list of N SE(3) matrices corresponding to
+    the origin of the end-effector frame following a straight line
+
+    :param Xstart: The initial end-effector configuration
+    :param Xend: The final end-effector configuration
+    :param Tf: Total time of the motion in seconds from rest to rest
+    :param N: The number of points N > 1 (Start and stop) in the discrete
+              representation of the trajectory
+    :param method: The time-scaling method, where 3 indicates cubic (third-
+                   order polynomial) time scaling and 5 indicates quintic
+                   (fifth-order polynomial) time scaling
+    :return: The discretized trajectory as a list of N matrices in SE(3)
+             separated in time by Tf/(N-1). The first in the list is Xstart
+             and the Nth is Xend
+    This function is similar to ScrewTrajectory, except the origin of the
+    end-effector frame follows a straight line, decoupled from the rotational
+    motion.
+"""
+def CartesianTrajectory(Xstart, Xend, Tf, N, method):
+    dt = Tf / (N - 1.0)
+    trajectory = []
+
+    Rstart = Xstart[0:3, 0:3]
+    Rend = Xend[0:3, 0:3]
+    Rstart_end = mr.RotInv(Rstart) @ Rend
+    tstart = Xstart[0:3, 3]
+    tend = Xend[0:3, 3]
+
+    for i in range(N):
+        t = i * dt
+        s = 0
+        if method == 3:
+            s = CubicTimeScaling(Tf, t)
+        elif method == 5:
+            s = QuinticTimeScaling(Tf, t)
+        Rs = Rstart @ mr.MatrixExp3(mr.MatrixLog3(Rstart_end) * s)
+        ts = tstart * (1 - s) + tend * s
+        T = np.identity(4)
+        T[0:3, 0:3] = Rs
+        T[0:3, 3] = ts
+        trajectory.append(T)
+
+    return trajectory
